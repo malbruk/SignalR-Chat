@@ -1,6 +1,8 @@
 ﻿@page "/"
+@using Blazor_SignalR.Data
 @using Microsoft.AspNetCore.SignalR.Client
 @inject NavigationManager Navigation
+@inject ChatService ChatService
 @implements IAsyncDisposable
 
 <PageTitle>Index</PageTitle>
@@ -11,14 +13,23 @@
         <input @bind="userInput" />
     </label>
 </div>
+<button @onclick="AddUser" disabled="@(!IsConnected)">Add User</button>
+
 <div class="form-group">
     <label>
         Message:
         <input @bind="messageInput" size="50" />
     </label>
 </div>
-<button @onclick="Send" disabled="@(!IsConnected)">Send</button>
 
+<div class="form-group">
+    <label>
+        To User:
+        <input @bind="toUserInput" size="50" />
+    </label>
+</div>
+
+<button @onclick="Send" disabled="@(!IsConnected)">Send</button>
 <hr>
 
 <ul id="messagesList">
@@ -33,6 +44,7 @@
     private List<string> messages = new List<string>();
     private string? userInput;
     private string? messageInput;
+    private string? toUserInput;
 
     protected override async Task OnInitializedAsync()
     {
@@ -40,22 +52,43 @@
             .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
             .Build();
 
-        hubConnection.On<string, string>("Message", (user, message) =>
+        hubConnection.On<string, string>("ReceiveMessage", (userName, message) =>
         {
-            var encodedMsg = $"{user}: {message}";
+            var encodedMsg = $"[{DateTime.Now.ToShortTimeString()}] {userName} wrote: {message}";
             messages.Add(encodedMsg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string>("PrivateMessage", (userName, message) =>
+        {
+            var encodedMsg = $"[{DateTime.Now.ToShortTimeString()}] {userName} wrote to you privately: {message}";
+            messages.Add(encodedMsg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string>("Smily", (smily) =>
+        {
+            messages.Add(smily);
             InvokeAsync(StateHasChanged);
         });
 
         await hubConnection.StartAsync();
     }
 
+    private void AddUser()
+    {
+        if (hubConnection is not null)
+        {
+            ChatService.AddUser(hubConnection.ConnectionId, userInput);
+        }
+    }
+
     private async Task Send()
     {
         if (hubConnection is not null)
-            {
-                await hubConnection.SendAsync("SendMessage", userInput, messageInput);
-            }
+        {
+            await hubConnection.SendAsync("SendMessage", messageInput, toUserInput);
+        }
     }
 
     public bool IsConnected =>

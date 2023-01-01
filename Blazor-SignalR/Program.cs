@@ -1,8 +1,10 @@
-using Blazor_SignalR.Data;
+﻿using Blazor_SignalR.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.ResponseCompression;
 using Blazor_SignalR.Hubs;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
+builder.Services.AddSingleton<ChatService>();
 builder.Services.AddResponseCompression(opts =>
 {
     opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
@@ -39,5 +42,11 @@ app.MapBlazorHub();
 app.MapHub<ChatHub>("/chathub");
 
 app.MapFallbackToPage("/_Host");
+
+app.MapGet("smily", async(IHubContext<ChatHub> hubContext) =>
+{
+    await hubContext.Clients.All.SendAsync("Smily", "😍");
+    return "OK";
+});
 
 app.Run();
